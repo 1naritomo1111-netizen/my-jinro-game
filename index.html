@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIマルチ人狼コミュニティ</title>
+    <style>
+        body { font-family: sans-serif; background: #1a1a1a; color: white; text-align: center; margin: 0; padding: 10px; }
+        .container { max-width: 500px; margin: 0 auto; background: #2a2a2a; padding: 20px; border-radius: 15px; border: 1px solid #444; }
+        h1 { color: #e74c3c; font-size: 1.5rem; }
+        input, select { width: 90%; padding: 12px; margin: 10px 0; border-radius: 5px; border: none; font-size: 1rem; }
+        .roles-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: left; background: #333; padding: 10px; border-radius: 8px; margin: 10px 0; font-size: 0.85rem; }
+        button { background: #e74c3c; color: white; border: none; padding: 15px 30px; border-radius: 30px; cursor: pointer; width: 100%; font-weight: bold; font-size: 1.1rem; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        .player-card { background: #3b3b3b; margin: 5px 0; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #e74c3c; }
+        .my-role { background: #4b0082; padding: 15px; border-radius: 10px; margin-top: 15px; border: 2px solid #9b59b6; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="setup-screen" class="container">
+    <h1>人狼コミュニティ</h1>
+    <input type="text" id="room-id" placeholder="合言葉（例: friends777）">
+    <input type="text" id="player-name" placeholder="あなたの名前">
+    
+    <div style="margin-top:15px; text-align:left;">
+        <label>最大人数 (5～30人):</label>
+        <input type="number" id="max-players" value="5" min="5" max="30">
+    </div>
+
+    <p style="text-align:left; margin-bottom:5px;">使用する役職:</p>
+    <div class="roles-grid" id="role-settings">
+        <div><input type="checkbox" id="role-3" checked> ③占い師</div>
+        <div><input type="checkbox" id="role-4" checked> ④霊媒師</div>
+        <div><input type="checkbox" id="role-5" checked> ⑤騎士/ｺｽﾌﾟﾚ</div>
+        <div><input type="checkbox" id="role-6"> ⑥恋人</div>
+        <div><input type="checkbox" id="role-7"> ⑦多重/ﾒﾝﾀ</div>
+        <div><input type="checkbox" id="role-8"> ⑧吸血鬼</div>
+    </div>
+    
+    <button id="join-btn">入室・ルーム作成</button>
+</div>
+
+<div id="game-screen" class="container hidden">
+    <h2>ルーム: <span id="display-room"></span></h2>
+    <div id="status-msg" style="color:#f1c40f; margin-bottom:10px;">メンバーを待っています...</div>
+    
+    <div id="player-list"></div>
+    <p>現在の人数: <span id="current-count">0</span> / <span id="display-max">0</span>人</p>
+
+    <div id="role-display" class="my-role hidden">
+        <strong>あなたの役職: <span id="my-role-name">? ? ?</span></strong>
+    </div>
+
+    <button id="start-game-btn" class="hidden" style="background:#27ae60; margin-top:20px;">ゲーム開始（配役実行）</button>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue, update, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // ユーザーが提供した鍵
+    const firebaseConfig = {
+        apiKey: "AIzaSyDlorUmU3Ik_7-FG_S6VoylkM5ivYvuOoA",
+        authDomain: "my-jinro-game.firebaseapp.com",
+        projectId: "my-jinro-game",
+        storageBucket: "my-jinro-game.firebasestorage.app",
+        messagingSenderId: "534900473912",
+        appId: "1:534900473912:web:18feed00b63f5879d466cd"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let myName = "";
+    let currentRoom = "";
+
+    document.getElementById('join-btn').onclick = async () => {
+        const roomId = document.getElementById('room-id').value;
+        myName = document.getElementById('player-name').value;
+        const maxPlayers = document.getElementById('max-players').value;
+
+        if (!roomId || !myName) return alert("合言葉と名前を入れてね！");
+
+        currentRoom = roomId;
+        const playerRef = ref(db, `rooms/${roomId}/players/${myName}`);
+        
+        // ルーム全体の基本設定を保存
+        const roomRef = ref(db, `rooms/${roomId}/config`);
+        set(roomRef, { 
+            max: maxPlayers, 
+            active: false,
+            // 選択された役職のフラグを保存
+            role3: document.getElementById('role-3').checked,
+            role4: document.getElementById('role-4').checked,
+            role5: document.getElementById('role-5').checked,
+            role6: document.getElementById('role-6').checked,
+            role7: document.getElementById('role-7').checked,
+            role8: document.getElementById('role-8').checked
+        });
+
+        // 自分の参加情報を保存
+        set(playerRef, { name: myName, role: "未割当" });
+        onDisconnect(playerRef).remove();
+
+        document.getElementById('setup-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+        document.getElementById('display-room').innerText = roomId;
+
+        // 通信監視：プレイヤーリストの更新
+        onValue(ref(db, `rooms/${roomId}`), (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            const players = data.players || {};
+            const config = data.config || {};
+            const listDiv = document.getElementById('player-list');
+            listDiv.innerHTML = "";
+            
+            let pNames = Object.keys(players);
+            pNames.forEach(name => {
+                listDiv.innerHTML += `<div class="player-card">👤 ${name} <span>準備完了</span></div>`;
+            });
+
+            document.getElementById('current-count').innerText = pNames.length;
+            document.getElementById('display-max').innerText = config.max;
+
+            // 自分がホスト（最初に入った人など）の場合、開始ボタンを表示
+            if (pNames[0] === myName) {
+                document.getElementById('start-game-btn').classList.remove('hidden');
+            }
+
+            // 配役が完了したか監視
+            if (players[myName] && players[myName].role !== "未割当") {
+                document.getElementById('role-display').classList.remove('hidden');
+                document.getElementById('my-role-name').innerText = players[myName].role;
+                document.getElementById('status-msg').innerText = "配役が完了しました。夜の行動へ...";
+            }
+        });
+    };
+
+    // ゲーム開始（配役ロジック）
+    document.getElementById('start-game-btn').onclick = () => {
+        const roomPath = `rooms/${currentRoom}`;
+        onValue(ref(db, roomPath), (snapshot) => {
+            const data = snapshot.val();
+            const players = data.players;
+            const names = Object.keys(players);
+            const count = names.length;
+            const config = data.config;
+
+            // シンプルな配役アルゴリズム
+            let roles = [];
+            // 人狼の数（5〜8人で1人、9〜15人で2人、それ以上は3人〜と調整）
+            let wolfCount = count >= 16 ? 3 : (count >= 9 ? 2 : 1);
+            for(let i=0; i<wolfCount; i++) roles.push("②人狼");
+            
+            if (config.role3) roles.push("③占い師");
+            if (config.role4 && wolfCount >= 2) roles.push("④霊媒師");
+            if (config.role5) roles.push("⑤騎士/ｺｽﾌﾟﾚｲﾔｰ");
+            if (config.role6) { roles.push("⑥恋人"); roles.push("⑥恋人"); }
+            if (config.role7) roles.push("⑦多重人格/ﾒﾝﾀﾘｽﾄ");
+            if (config.role8) roles.push("⑧吸血鬼");
+
+            // 残りを市民で埋める
+            while(roles.length < count) {
+                roles.push("①市民");
+            }
+
+            // シャッフル
+            roles.sort(() => Math.random() - 0.5);
+
+            // Firebaseへ書き込み
+            let updates = {};
+            names.forEach((name, idx) => {
+                updates[`/players/${name}/role`] = roles[idx];
+            });
+            update(ref(db, roomPath), updates);
+
+        }, { onlyOnce: true });
+    };
+</script>
+</body>
+</html>
