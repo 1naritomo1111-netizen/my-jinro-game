@@ -23,6 +23,7 @@
         #status-label { background: #222; padding: 5px; border-radius: 5px; font-size: 0.8rem; margin-bottom: 5px; text-align: center; color: var(--gold); }
         #event-log { background: rgba(241, 196, 15, 0.1); border: 1px solid var(--baker); padding: 8px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 10px; text-align: center; color: var(--baker); }
         .role-desc { font-size: 0.75rem; color: #ccc; margin-top: 3px; line-height: 1.2; }
+        .night-result { color: #2ecc71; margin-top: 10px; font-weight: bold; }
         
         #victory-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; text-align: center; color: var(--gold); padding: 20px; box-sizing: border-box; }
         .vic-msg { font-size: 2rem; font-weight: bold; text-shadow: 0 0 20px var(--gold); margin-bottom: 10px; }
@@ -130,7 +131,6 @@
         }
     });
 
-    // ホスト用ボタンのイベント
     document.getElementById('host-vote-btn').onclick = () => {
         update(ref(db, `rooms/${currentRoom}/config`), { phase: "voting" });
     };
@@ -174,11 +174,9 @@
 
             checkGameEnd(players, config);
 
-            // ステータス表示
             const phaseLabel = { waiting: "待機中", playing: "🗣️ 話し合い中", voting: "⚖️ 投票中", night: "🌙 夜の行動中" };
             document.getElementById('status-label').innerText = phaseLabel[config.phase] || "不明";
 
-            // パン屋ログ
             if (config.bakerMsg) {
                 document.getElementById('event-log').innerText = config.bakerMsg;
                 document.getElementById('event-log').classList.remove('hidden');
@@ -186,13 +184,11 @@
                 document.getElementById('event-log').classList.add('hidden');
             }
 
-            // プレイヤー一覧
             const listDiv = document.getElementById('player-list'); listDiv.innerHTML = "";
             Object.keys(players).forEach(n => {
                 listDiv.innerHTML += `<div class="player-card ${players[n].alive ? '' : 'dead'}"><span>👤 ${n}</span><span>${players[n].alive ? '生存' : '死亡'}</span></div>`;
             });
 
-            // 役職表示
             if (myData && myData.role !== "未割当") {
                 document.getElementById('role-display').classList.remove('hidden');
                 document.getElementById('my-role-name').innerText = myData.role;
@@ -200,7 +196,6 @@
                 document.getElementById('my-role-desc').innerText = roleObj ? roleObj.desc : "";
             }
 
-            // アクションパネル（投票ボタンなど）の描画ロジック
             const actionPanel = document.getElementById('action-panel');
             const btnArea = document.getElementById('action-buttons');
             const msg = document.getElementById('action-msg');
@@ -223,6 +218,7 @@
                 } else if (config.phase === "night") {
                     actionPanel.classList.remove('hidden');
                     btnArea.innerHTML = "";
+                    
                     if (myData.role === "人狼") {
                         msg.innerText = "【襲撃】今夜殺す人を選択";
                         Object.keys(players).forEach(n => {
@@ -255,7 +251,17 @@
                                 btnArea.appendChild(b);
                             }
                         });
-                    } else { msg.innerText = "夜：恐ろしい夜が明けるのを待っています..."; }
+                    } else {
+                        // 【追加】市民側の「怪しい人選択」
+                        msg.innerText = "【推理】今、誰が怪しいと思いますか？";
+                        Object.keys(players).forEach(n => {
+                            if (players[n].alive && n !== myName) {
+                                const b = document.createElement('button'); b.innerText = n; b.className = "action-btn";
+                                b.onclick = () => { btnArea.innerHTML = `<p class="night-result">${n}さんを怪しんでいます...</p>`; };
+                                btnArea.appendChild(b);
+                            }
+                        });
+                    }
                 } else {
                     actionPanel.classList.add('hidden');
                 }
@@ -263,7 +269,6 @@
                 actionPanel.classList.add('hidden');
             }
 
-            // ホストコントロールの表示切替
             if (isHostMode) {
                 const controls = document.getElementById('host-controls');
                 if (config.phase === "playing") {
