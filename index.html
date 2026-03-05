@@ -23,6 +23,7 @@
         #status-label { background: #222; padding: 5px; border-radius: 5px; font-size: 0.8rem; margin-bottom: 5px; text-align: center; color: var(--gold); }
         #event-log { background: rgba(241, 196, 15, 0.1); border: 1px solid var(--baker); padding: 8px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 10px; text-align: center; color: var(--baker); }
         .role-desc { font-size: 0.75rem; color: #ccc; margin-top: 3px; line-height: 1.2; }
+        .teammate-info { font-size: 0.85rem; color: #ff4444; margin-top: 8px; font-weight: bold; border-top: 1px solid #444; padding-top: 5px; }
         .night-result { color: #2ecc71; margin-top: 10px; font-weight: bold; }
         
         #victory-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; text-align: center; color: var(--gold); padding: 20px; box-sizing: border-box; }
@@ -60,7 +61,7 @@
         <span style="font-size: 0.7rem; color: #aaa;">あなたの役職</span><br>
         <strong id="my-role-name" style="font-size: 1.4rem; color: var(--gold);">? ? ?</strong>
         <div id="my-role-desc" class="role-desc"></div>
-        <div id="teammate-info" style="font-size: 0.85rem; color: #ff4444; margin-top:5px;"></div>
+        <div id="teammate-info" class="teammate-info"></div>
     </div>
 
     <div id="action-panel" class="hidden" style="background:rgba(255,255,255,0.05); padding:15px; border-radius:10px; border:1px solid var(--gold); margin-bottom:10px;">
@@ -189,11 +190,25 @@
                 listDiv.innerHTML += `<div class="player-card ${players[n].alive ? '' : 'dead'}"><span>👤 ${n}</span><span>${players[n].alive ? '生存' : '死亡'}</span></div>`;
             });
 
+            // 役職と仲間の表示
             if (myData && myData.role !== "未割当") {
                 document.getElementById('role-display').classList.remove('hidden');
                 document.getElementById('my-role-name').innerText = myData.role;
                 const roleObj = rolesData.find(r => r.name === myData.role);
                 document.getElementById('my-role-desc').innerText = roleObj ? roleObj.desc : "";
+
+                let info = "";
+                if (myData.role === "人狼") {
+                    const partners = Object.keys(players).filter(n => (players[n].role === "人狼" || players[n].role === "人狼と出る騎士") && n !== myName);
+                    info = partners.length > 0 ? "仲間の人狼: " + partners.join(", ") : "仲間はいません";
+                } else if (myData.role === "狂人") {
+                    const masters = Object.keys(players).filter(n => players[n].role === "人狼" || players[n].role === "人狼と出る騎士");
+                    info = masters.length > 0 ? "ご主人様(人狼): " + masters.join(", ") : "ご主人様はいません";
+                } else if (myData.role === "恋人") {
+                    const partners = Object.keys(players).filter(n => players[n].role === "恋人" && n !== myName);
+                    info = partners.length > 0 ? "相方: " + partners.join(", ") : "相方はいません";
+                }
+                document.getElementById('teammate-info').innerHTML = info;
             }
 
             const actionPanel = document.getElementById('action-panel');
@@ -222,7 +237,7 @@
                     if (myData.role === "人狼") {
                         msg.innerText = "【襲撃】今夜殺す人を選択";
                         Object.keys(players).forEach(n => {
-                            if (players[n].alive && players[n].role !== "人狼") {
+                            if (players[n].alive && players[n].role !== "人狼" && players[n].role !== "人狼と出る騎士") {
                                 const b = document.createElement('button'); b.innerText = n; b.className = "action-btn";
                                 b.onclick = () => { update(ref(db, `rooms/${currentRoom}/players/${myName}`), { nightAction: n }); btnArea.innerHTML = "襲撃待機中..."; };
                                 btnArea.appendChild(b);
@@ -252,7 +267,6 @@
                             }
                         });
                     } else {
-                        // 【追加】市民側の「怪しい人選択」
                         msg.innerText = "【推理】今、誰が怪しいと思いますか？";
                         Object.keys(players).forEach(n => {
                             if (players[n].alive && n !== myName) {
