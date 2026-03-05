@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wolf Community - Chaos Edition</title>
     <style>
-        :root { --bg-color: #0d0d0d; --card-bg: #1a1a1a; --primary-red: #8b0000; --accent-red: #ff3333; --gold: #d4af37; --fox: #e67e22; --vampire: #9b59b6; }
+        :root { --bg-color: #0d0d0d; --card-bg: #1a1a1a; --primary-red: #8b0000; --accent-red: #ff3333; --gold: #d4af37; --fox: #e67e22; --vampire: #9b59b6; --baker: #f1c40f; --teruteru: #ecf0f1; }
         body { font-family: sans-serif; background: var(--bg-color); color: white; margin: 0; padding: 10px; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 450px; background: rgba(20, 20, 20, 0.9); padding: 20px; border-radius: 20px; border: 1px solid #441111; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
         h1 { font-size: 1.5rem; color: var(--accent-red); text-shadow: 0 0 10px rgba(255,0,0,0.5); margin-bottom: 20px; border-bottom: 2px solid var(--primary-red); padding-bottom: 10px; text-align: center; }
@@ -20,8 +20,10 @@
         .my-role-box { background: linear-gradient(to right, #2c0000, #1a1a1a); padding: 15px; border-radius: 12px; margin: 15px 0; border: 1px solid var(--gold); }
         .hidden { display: none !important; }
         .action-btn { background: transparent; border: 1px solid var(--gold); color: white; margin: 5px; padding: 10px; width: 45%; border-radius: 5px; cursor: pointer; font-size: 0.85rem; }
-        #status-label { background: #222; padding: 5px; border-radius: 5px; font-size: 0.8rem; margin-bottom: 10px; text-align: center; color: var(--gold); }
+        #status-label { background: #222; padding: 5px; border-radius: 5px; font-size: 0.8rem; margin-bottom: 5px; text-align: center; color: var(--gold); }
+        #event-log { background: rgba(241, 196, 15, 0.1); border: 1px solid var(--baker); padding: 8px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 10px; text-align: center; color: var(--baker); }
         .night-result { color: #2ecc71; margin-top: 10px; font-weight: bold; }
+        .role-desc { font-size: 0.75rem; color: #ccc; margin-top: 3px; line-height: 1.2; }
         
         #victory-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; text-align: center; color: var(--gold); padding: 20px; box-sizing: border-box; }
         .vic-msg { font-size: 2rem; font-weight: bold; text-shadow: 0 0 20px var(--gold); margin-bottom: 10px; }
@@ -40,6 +42,7 @@
 
 <div id="game-screen" class="container hidden">
     <div id="status-label">待機中</div>
+    <div id="event-log" class="hidden"></div>
     
     <div id="host-panel" class="hidden">
         <div id="setup-area" class="setup-box">
@@ -56,6 +59,7 @@
     <div id="role-display" class="my-role-box hidden">
         <span style="font-size: 0.7rem; color: #aaa;">あなたの役職</span><br>
         <strong id="my-role-name" style="font-size: 1.4rem; color: var(--gold);">? ? ?</strong>
+        <div id="my-role-desc" class="role-desc"></div>
         <div id="teammate-info" style="font-size: 0.85rem; color: #ff4444; margin-top:5px;"></div>
     </div>
 
@@ -96,15 +100,17 @@
 
     let myName = "", currentRoom = "";
     const rolesData = [
-        { id: 'wolf', name: '人狼', count: 1 },
-        { id: 'uranai', name: '占い師', count: 1 },
-        { id: 'reibai', name: '霊媒師', count: 1 },
-        { id: 'kishi', name: '騎士', count: 1 },
-        { id: 'kyojin', name: '狂人', count: 1 },
-        { id: 'lover', name: '恋人', count: 0 },
-        { id: 'vampire', name: '吸血鬼', count: 0 },
-        { id: 'wolf_kishi', name: '人狼と出る騎士', count: 0 },
-        { id: 'fox', name: '妖狐', count: 0 }
+        { id: 'wolf', name: '人狼', count: 1, desc: '仲間の人狼と協力して、村人を襲撃します。' },
+        { id: 'uranai', name: '占い師', count: 1, desc: '毎晩一人の正体（人狼か人間か）を知ることができます。' },
+        { id: 'reibai', name: '霊媒師', count: 1, desc: '昼に処刑された人が人狼だったかを知ることができます。' },
+        { id: 'kishi', name: '騎士', count: 1, desc: '毎晩一人の人を人狼の襲撃から守ることができます。' },
+        { id: 'baker', name: 'パン屋', count: 1, desc: 'あなたが生存している限り、毎朝村にパンが届きます。' },
+        { id: 'teruteru', name: 'てるてる', count: 0, desc: '【第3陣営】処刑されるか、最後まで生き残ると勝利です。' },
+        { id: 'kyojin', name: '狂人', count: 0, desc: '人狼の味方をする人間。占われても人間と出ます。' },
+        { id: 'vampire', name: '吸血鬼', count: 0, desc: '【第3陣営】人狼でも市民でもない不死者。最後まで生存すれば勝利。' },
+        { id: 'fox', name: '妖狐', count: 0, desc: '【第3陣営】占われると死にますが、人狼には殺されません。生存で勝利。' },
+        { id: 'wolf_kishi', name: '人狼と出る騎士', count: 0, desc: '守る能力を持ちますが、占われると人狼と出ます。' },
+        { id: 'lover', name: '恋人', count: 0, desc: '相方と二人で最後まで生き残りを目指します。' }
     ];
 
     function renderRoleSetup() {
@@ -125,39 +131,48 @@
         }
     });
 
-    function checkGameEnd(players, config) {
+    function checkGameEnd(players, config, executedTeruteru = null) {
         if (!config || config.phase === "waiting") return false;
         const aliveNames = Object.keys(players).filter(n => players[n].alive);
-        if (aliveNames.length === 0) return false;
         const unassigned = Object.keys(players).filter(n => players[n].role === "未割当");
         if (unassigned.length > 0) return false;
 
         const wolves = aliveNames.filter(n => players[n].role === "人狼" || players[n].role === "人狼と出る騎士");
         const foxes = aliveNames.filter(n => players[n].role === "妖狐");
         const vampires = aliveNames.filter(n => players[n].role === "吸血鬼");
+        const teruterus = aliveNames.filter(n => players[n].role === "てるてる");
         const humans = aliveNames.filter(n => 
             players[n].role !== "人狼" && players[n].role !== "人狼と出る騎士" && 
             players[n].role !== "妖狐" && players[n].role !== "吸血鬼"
         );
 
         let baseWinner = "";
-        if (wolves.length === 0) baseWinner = "市民チーム";
-        else if (wolves.length >= humans.length) baseWinner = "人狼チーム";
+        let subMsg = "";
+
+        // 特殊：てるてるが処刑された場合
+        if (executedTeruteru) {
+            baseWinner = "てるてる";
+            subMsg = `てるてる（${executedTeruteru}）が処刑され、願いが叶いました。`;
+        } else if (wolves.length === 0) {
+            baseWinner = "市民チーム";
+            subMsg = "人狼をすべて駆逐しました。";
+        } else if (wolves.length >= humans.length) {
+            baseWinner = "人狼チーム";
+            subMsg = "村は人狼の支配下に置かれました。";
+        }
 
         if (baseWinner === "") return false;
 
         let finalWinner = baseWinner + "の勝利！";
-        let subMsg = baseWinner === "市民チーム" ? "人狼をすべて駆逐しました。" : "村は人狼の支配下に置かれました。";
+        // 第3陣営の生存チェック
+        let extraWinners = [];
+        if (foxes.length > 0) extraWinners.push("妖狐");
+        if (vampires.length > 0) extraWinners.push("吸血鬼");
+        if (teruterus.length > 0) extraWinners.push("てるてる");
 
-        if (foxes.length > 0 && vampires.length > 0) {
-            finalWinner = "妖狐と吸血鬼の勝利！";
-            subMsg = "人知を超えた存在が勝利を奪いました。";
-        } else if (foxes.length > 0) {
-            finalWinner = "妖狐の単独勝利！";
-            subMsg = "勝利の影で狐が笑っています。";
-        } else if (vampires.length > 0) {
-            finalWinner = "吸血鬼の単独勝利！";
-            subMsg = "不死の者が真の勝者です。";
+        if (extraWinners.length > 0 && baseWinner !== "てるてる") {
+            finalWinner = extraWinners.join("と") + "の勝利！";
+            subMsg = "市民も人狼も、彼らに出し抜かれました。";
         }
 
         document.getElementById('vic-main').innerText = finalWinner;
@@ -185,7 +200,7 @@
         if (isHostMode) {
             document.getElementById('host-panel').classList.remove('hidden');
             renderRoleSetup();
-            update(ref(db, `rooms/${roomId}/config`), { phase: "waiting" });
+            update(ref(db, `rooms/${roomId}/config`), { phase: "waiting", bakerMsg: "" });
         }
 
         onValue(ref(db, `rooms/${roomId}`), snapshot => {
@@ -199,6 +214,13 @@
             document.getElementById('status-label').innerText = 
                 config.phase === "playing" ? "🗣️ 話し合い中" : (config.phase === "voting" ? "⚖️ 投票中" : (config.phase === "night" ? "🌙 夜の行動中" : "待機中"));
 
+            if (config.bakerMsg) {
+                document.getElementById('event-log').innerText = config.bakerMsg;
+                document.getElementById('event-log').classList.remove('hidden');
+            } else {
+                document.getElementById('event-log').classList.add('hidden');
+            }
+
             const listDiv = document.getElementById('player-list'); listDiv.innerHTML = "";
             Object.keys(players).forEach(n => {
                 listDiv.innerHTML += `<div class="player-card ${players[n].alive ? '' : 'dead'}"><span>👤 ${n}</span><span>${players[n].alive ? '生存' : '死亡'}</span></div>`;
@@ -207,16 +229,16 @@
             if (myData && myData.role !== "未割当") {
                 document.getElementById('role-display').classList.remove('hidden');
                 document.getElementById('my-role-name').innerText = myData.role;
+                const roleObj = rolesData.find(r => r.name === myData.role);
+                document.getElementById('my-role-desc').innerText = roleObj ? roleObj.desc : "";
                 
                 let info = "";
-                // --- 狂人・人狼・恋人の認知ロジック追加 ---
                 if (myData.role === "人狼") {
                     const partners = Object.keys(players).filter(n => players[n].role === "人狼" && n !== myName);
                     info = partners.length > 0 ? "仲間の人狼: " + partners.join(", ") : "仲間はいません";
-                    partners.forEach(p => { if (players[p].nightAction) info += `<br><span style="color:yellow">仲間の狙い: ${players[p].nightAction}</span>`; });
                 } else if (myData.role === "狂人") {
                     const masters = Object.keys(players).filter(n => players[n].role === "人狼" || players[n].role === "人狼と出る騎士");
-                    info = masters.length > 0 ? "ご主人様(人狼): " + masters.join(", ") : "ご主人様は不在のようです";
+                    info = masters.length > 0 ? "ご主人様(人狼): " + masters.join(", ") : "ご主人様はいません";
                 } else if (myData.role === "恋人") {
                     const partners = Object.keys(players).filter(n => players[n].role === "恋人" && n !== myName);
                     info = partners.length > 0 ? "相方: " + partners.join(", ") : "相方はいません";
@@ -267,7 +289,7 @@
                         }
                     });
                 } else if (myData.role === "霊媒師") {
-                    msg.innerText = "霊媒：直前に死んだ人をみます";
+                    msg.innerText = "霊媒：直前に処刑された人をみます";
                     const lastDead = config.lastDead;
                     if (lastDead && players[lastDead]) {
                         const b = document.createElement('button'); b.innerText = lastDead + "を視る"; b.className = "action-btn";
@@ -287,14 +309,7 @@
                         }
                     });
                 } else {
-                    msg.innerText = "推理：怪しい人を選んでください";
-                    Object.keys(players).forEach(n => {
-                        if (players[n].alive && n !== myName) {
-                            const b = document.createElement('button'); b.innerText = n; b.className = "action-btn";
-                            b.onclick = () => { btnArea.innerHTML = `<p>${n} さんをマークしました。</p>`; };
-                            btnArea.appendChild(b);
-                        }
-                    });
+                    msg.innerText = "夜：あなたはぐっすり眠っています";
                 }
             } else { actionPanel.classList.add('hidden'); }
 
@@ -320,31 +335,32 @@
             rolesData.forEach(r => { for(let i=0; i<r.count; i++) roles.push(r.name); });
             while(roles.length < names.length) roles.push("市民");
             roles.sort(() => Math.random() - 0.5);
-            let up = { "config/phase": "playing", "config/lastDead": "", "config/foxKilled": "" };
+            let up = { "config/phase": "playing", "config/lastDead": "", "config/foxKilled": "", "config/bakerMsg": "" };
             names.forEach((n, i) => { up[`players/${n}/role`] = roles[i]; up[`players/${n}/alive`] = true; up[`players/${n}/vote`] = ""; up[`players/${n}/nightAction`] = ""; });
             update(ref(db, `rooms/${currentRoom}`), up);
             document.getElementById('setup-area').classList.add('hidden');
         }, { onlyOnce: true });
     };
 
-    document.getElementById('go-to-vote-btn').onclick = () => update(ref(db, `rooms/${currentRoom}/config`), { phase: "voting" });
-
     function processMorning(players, config) {
-        const wolfChoices = [...new Set(Object.keys(players).filter(n => players[n].alive && players[n].role === "人狼").map(n => players[n].nightAction).filter(a => a !== ""))];
-        const kishiGuards = Object.keys(players).filter(n => players[n].alive && (players[n].role === "騎士" || players[n].role === "人狼と出る騎士")).map(n => players[n].nightAction);
+        const alives = Object.keys(players).filter(n => players[n].alive);
+        const wolfChoices = [...new Set(alives.filter(n => players[n].role === "人狼").map(n => players[n].nightAction).filter(a => a !== ""))];
+        const kishiGuards = alives.filter(n => players[n].role === "騎士" || players[n].role === "人狼と出る騎士").map(n => players[n].nightAction);
         let wolfTarget = wolfChoices.length > 0 ? wolfChoices[Math.floor(Math.random() * wolfChoices.length)] : "";
         let foxKilled = config.foxKilled || "";
         let deads = [];
         if (wolfTarget && !kishiGuards.includes(wolfTarget) && players[wolfTarget].role !== "妖狐") deads.push(wolfTarget);
         if (foxKilled && !deads.includes(foxKilled)) deads.push(foxKilled);
 
-        let up = { "config/phase": "playing", "config/foxKilled": "" };
+        // パン屋判定
+        const bakerAlive = alives.filter(n => players[n].role === "パン屋" && !deads.includes(n)).length > 0;
+        let up = { "config/phase": "playing", "config/foxKilled": "", "config/bakerMsg": bakerAlive ? "🍞 パン屋から美味しいパンが届きました。" : "🍞 今日はパンが届きませんでした。" };
+        
         if (deads.length > 0) {
             deads.forEach(d => { up[`players/${d}/alive`] = false; });
-            up["config/lastDead"] = deads[0];
             alert("犠牲者: " + deads.join(", "));
         } else { alert("犠牲者はいませんでした。"); }
-        Object.keys(players).forEach(n => { up[`players/${n}/nightAction`] = ""; up[`players/${n}/vote`] = ""; });
+        alives.forEach(n => { up[`players/${n}/nightAction`] = ""; up[`players/${n}/vote`] = ""; });
         update(ref(db, `rooms/${currentRoom}`), up);
     }
 
@@ -354,7 +370,14 @@
         if (votes.length > 0 && votes.length === alives.length) {
             let counts = {}; votes.forEach(v => counts[v] = (counts[v] || 0) + 1);
             const target = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
-            let up = { "config/phase": "playing", "config/lastDead": target };
+            
+            // てるてる処刑判定
+            if (players[target].role === "てるてる") {
+                checkGameEnd(players, {phase: "playing"}, target);
+                return;
+            }
+
+            let up = { "config/phase": "playing", "config/lastDead": target, "config/bakerMsg": "" };
             up[`players/${target}/alive`] = false;
             alives.forEach(n => up[`players/${n}/vote`] = "");
             alert(target + "さんを追放しました。");
