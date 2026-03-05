@@ -3,68 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AIマルチ人狼コミュニティ</title>
+    <title>Wolf Community - Mode Separate Edition</title>
     <style>
-        body { font-family: sans-serif; background: #1a1a1a; color: white; text-align: center; margin: 0; padding: 10px; }
-        .container { max-width: 500px; margin: 0 auto; background: #2a2a2a; padding: 20px; border-radius: 15px; border: 1px solid #444; }
-        h1 { color: #e74c3c; font-size: 1.5rem; }
-        input, select { width: 90%; padding: 12px; margin: 10px 0; border-radius: 5px; border: none; font-size: 1rem; }
-        .roles-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: left; background: #333; padding: 10px; border-radius: 8px; margin: 10px 0; font-size: 0.85rem; }
-        button { background: #e74c3c; color: white; border: none; padding: 15px 30px; border-radius: 30px; cursor: pointer; width: 100%; font-weight: bold; font-size: 1.1rem; }
-        button:disabled { background: #555; cursor: not-allowed; }
-        .player-card { background: #3b3b3b; margin: 5px 0; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #e74c3c; }
-        .my-role { background: #4b0082; padding: 15px; border-radius: 10px; margin-top: 15px; border: 2px solid #9b59b6; }
-        .hidden { display: none; }
+        :root { --bg-color: #0d0d0d; --card-bg: #1a1a1a; --primary-red: #8b0000; --accent-red: #ff3333; --gold: #d4af37; }
+        body { font-family: sans-serif; background: var(--bg-color); color: white; margin: 0; padding: 10px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 450px; background: rgba(20, 20, 20, 0.9); padding: 20px; border-radius: 20px; border: 1px solid #441111; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+        h1 { font-size: 1.5rem; color: var(--accent-red); text-shadow: 0 0 10px rgba(255,0,0,0.5); margin-bottom: 20px; border-bottom: 2px solid var(--primary-red); padding-bottom: 10px; }
+        input { width: 100%; padding: 12px; margin: 8px 0; background: #000; border: 1px solid #333; color: white; border-radius: 8px; box-sizing: border-box; }
+        .setup-box { background: rgba(40, 0, 0, 0.3); padding: 15px; border-radius: 10px; border: 1px solid var(--primary-red); margin: 10px 0; }
+        .role-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .count-controls { display: flex; align-items: center; gap: 10px; }
+        .count-btn { width: 30px; height: 30px; background: #444; border: 1px solid #666; color: white; border-radius: 5px; cursor: pointer; }
+        button.main-btn { background: linear-gradient(135deg, var(--primary-red), #440000); color: white; border: none; padding: 15px; border-radius: 10px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 10px; }
+        .player-card { background: var(--card-bg); margin: 5px 0; padding: 12px; border-radius: 10px; display: flex; justify-content: space-between; border-left: 4px solid var(--primary-red); }
+        .my-role-box { background: linear-gradient(to right, #2c0000, #1a1a1a); padding: 15px; border-radius: 12px; margin: 15px 0; border: 1px solid var(--gold); text-align: left; }
+        .hidden { display: none !important; }
+        .vote-btn { background: transparent; border: 1px solid var(--accent-red); margin: 5px; padding: 10px; color: white; width: 45%; border-radius: 5px; }
     </style>
 </head>
 <body>
 
-<div id="setup-screen" class="container">
-    <h1>人狼コミュニティ</h1>
-    <input type="text" id="room-id" placeholder="合言葉（例: friends777）">
+<div id="login-screen" class="container">
+    <h1 id="title-text">WOLF COMMUNITY</h1>
+    <div id="host-only-badge" class="hidden" style="color:var(--gold); font-size:0.8rem; margin-bottom:10px;">【ホストモードで起動中】</div>
+    <input type="text" id="room-id" placeholder="合言葉 (Room ID)">
     <input type="text" id="player-name" placeholder="あなたの名前">
-    
-    <div style="margin-top:15px; text-align:left;">
-        <label>最大人数 (5～30人):</label>
-        <input type="number" id="max-players" value="5" min="5" max="30">
-    </div>
-
-    <p style="text-align:left; margin-bottom:5px;">使用する役職:</p>
-    <div class="roles-grid" id="role-settings">
-        <div><input type="checkbox" id="role-3" checked> ③占い師</div>
-        <div><input type="checkbox" id="role-4" checked> ④霊媒師</div>
-        <div><input type="checkbox" id="role-5" checked> ⑤騎士/ｺｽﾌﾟﾚ</div>
-        <div><input type="checkbox" id="role-6"> ⑥恋人</div>
-        <div><input type="checkbox" id="role-7"> ⑦多重/ﾒﾝﾀ</div>
-        <div><input type="checkbox" id="role-8"> ⑧吸血鬼</div>
-    </div>
-    
-    <button id="join-btn">入室・ルーム作成</button>
+    <button id="join-btn" class="main-btn">入室する</button>
 </div>
 
 <div id="game-screen" class="container hidden">
-    <h2>ルーム: <span id="display-room"></span></h2>
-    <div id="status-msg" style="color:#f1c40f; margin-bottom:10px;">メンバーを待っています...</div>
+    <h2 style="font-size: 0.9rem; color: #888;">ROOM: <span id="display-room" style="color: white;"></span></h2>
     
-    <div id="player-list"></div>
-    <p>現在の人数: <span id="current-count">0</span> / <span id="display-max">0</span>人</p>
-
-    <div id="role-display" class="my-role hidden">
-        <strong>あなたの役職: <span id="my-role-name">? ? ?</span></strong>
+    <div id="host-panel" class="hidden">
+        <div class="setup-box">
+            <p style="color: var(--gold); margin: 0 0 10px 0; font-weight: bold;">ホスト設定：役職人数</p>
+            <div id="role-list"></div>
+            <button id="start-game-btn" class="main-btn" style="background: var(--gold); color: black;">この構成で配役を開始</button>
+        </div>
+        <button id="open-vote-btn" class="main-btn hidden" style="background: #3498db;">議論終了・投票開始</button>
     </div>
 
-    <button id="start-game-btn" class="hidden" style="background:#27ae60; margin-top:20px;">ゲーム開始（配役実行）</button>
+    <div id="participant-msg" class="hidden" style="background: #222; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+        <p style="color: #f1c40f; margin: 0;">ホストが設定中です。開始までお待ちください...</p>
+    </div>
+
+    <div id="role-display" class="my-role-box hidden">
+        <span style="font-size: 0.7rem; color: #aaa;">YOUR ROLE</span><br>
+        <strong id="my-role-name" style="font-size: 1.3rem; color: var(--gold);">? ? ?</strong>
+        <div id="teammate-info" style="font-size: 0.8rem; margin-top: 5px; color: #ff6666;"></div>
+    </div>
+
+    <div id="player-list"></div>
+    
+    <div id="vote-panel" class="hidden">
+        <p style="color: var(--accent-red); font-weight: bold;">処刑投票：対象を選択してください</p>
+        <div id="vote-buttons"></div>
+    </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, set, onValue, update, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // ユーザーが提供した鍵
     const firebaseConfig = {
         apiKey: "AIzaSyDlorUmU3Ik_7-FG_S6VoylkM5ivYvuOoA",
         authDomain: "my-jinro-game.firebaseapp.com",
         projectId: "my-jinro-game",
+        databaseURL: "https://my-jinro-game-default-rtdb.firebaseio.com",
         storageBucket: "my-jinro-game.firebasestorage.app",
         messagingSenderId: "534900473912",
         appId: "1:534900473912:web:18feed00b63f5879d466cd"
@@ -73,113 +78,155 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    let myName = "";
-    let currentRoom = "";
+    // ★URLを見てホストかどうかを判定
+    const urlParams = new URLSearchParams(window.location.search);
+    const isHostMode = urlParams.get('mode') === 'host';
 
-    document.getElementById('join-btn').onclick = async () => {
+    if (isHostMode) {
+        document.getElementById('host-only-badge').classList.remove('hidden');
+    }
+
+    let myName = "", currentRoom = "";
+    const rolesData = [
+        { id: 'wolf', name: '人狼', count: 1 },
+        { id: 'uranai', name: '占い師', count: 1 },
+        { id: 'reibai', name: '霊媒師', count: 0 },
+        { id: 'kishi', name: '騎士', count: 0 },
+        { id: 'lover', name: '恋人', count: 0 },
+        { id: 'multi', name: '多重人格', count: 0 },
+        { id: 'vamp', name: '吸血鬼', count: 0 }
+    ];
+
+    function renderRoleSetup() {
+        const div = document.getElementById('role-list');
+        div.innerHTML = "";
+        rolesData.forEach(role => {
+            const row = document.createElement('div');
+            row.className = 'role-row';
+            row.innerHTML = `<span>${role.name}</span>
+                <div class="count-controls">
+                    <button class="count-btn" data-id="${role.id}" data-delta="-1">-</button>
+                    <span id="count-${role.id}">${role.count}</span>
+                    <button class="count-btn" data-id="${role.id}" data-delta="1">+</button>
+                </div>`;
+            div.appendChild(row);
+        });
+    }
+
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('count-btn')) {
+            const id = e.target.dataset.id;
+            const delta = parseInt(e.target.dataset.delta);
+            const role = rolesData.find(r => r.id === id);
+            role.count = Math.max(0, role.count + delta);
+            document.getElementById(`count-${id}`).innerText = role.count;
+        }
+    });
+
+    document.getElementById('join-btn').onclick = () => {
         const roomId = document.getElementById('room-id').value;
         myName = document.getElementById('player-name').value;
-        const maxPlayers = document.getElementById('max-players').value;
-
-        if (!roomId || !myName) return alert("合言葉と名前を入れてね！");
-
+        if (!roomId || !myName) return alert("入力してください");
         currentRoom = roomId;
-        const playerRef = ref(db, `rooms/${roomId}/players/${myName}`);
-        
-        // ルーム全体の基本設定を保存
-        const roomRef = ref(db, `rooms/${roomId}/config`);
-        set(roomRef, { 
-            max: maxPlayers, 
-            active: false,
-            // 選択された役職のフラグを保存
-            role3: document.getElementById('role-3').checked,
-            role4: document.getElementById('role-4').checked,
-            role5: document.getElementById('role-5').checked,
-            role6: document.getElementById('role-6').checked,
-            role7: document.getElementById('role-7').checked,
-            role8: document.getElementById('role-8').checked
-        });
 
-        // 自分の参加情報を保存
-        set(playerRef, { name: myName, role: "未割当" });
-        onDisconnect(playerRef).remove();
+        const myPlayerRef = ref(db, `rooms/${roomId}/players/${myName}`);
+        set(myPlayerRef, { name: myName, role: "未割当", alive: true, vote: "" });
+        onDisconnect(myPlayerRef).remove();
 
-        document.getElementById('setup-screen').classList.add('hidden');
+        document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('game-screen').classList.remove('hidden');
         document.getElementById('display-room').innerText = roomId;
 
-        // 通信監視：プレイヤーリストの更新
-        onValue(ref(db, `rooms/${roomId}`), (snapshot) => {
-            const data = snapshot.val();
-            if (!data) return;
+        // ホストなら設定パネルを表示、そうでなければ待機メッセージを表示
+        if (isHostMode) {
+            document.getElementById('host-panel').classList.remove('hidden');
+            renderRoleSetup();
+            update(ref(db, `rooms/${roomId}/config`), { phase: "waiting" });
+        } else {
+            document.getElementById('participant-msg').classList.remove('hidden');
+        }
 
+        onValue(ref(db, `rooms/${roomId}`), (snapshot) => {
+            const data = snapshot.val(); if (!data) return;
             const players = data.players || {};
             const config = data.config || {};
+
             const listDiv = document.getElementById('player-list');
             listDiv.innerHTML = "";
-            
-            let pNames = Object.keys(players);
-            pNames.forEach(name => {
-                listDiv.innerHTML += `<div class="player-card">👤 ${name} <span>準備完了</span></div>`;
+            Object.keys(players).forEach(n => {
+                const p = players[n];
+                listDiv.innerHTML += `<div class="player-card ${p.alive ? '' : 'dead'}"><span>👤 ${n}</span><span>${p.alive ? '生存' : '追放'}</span></div>`;
             });
 
-            document.getElementById('current-count').innerText = pNames.length;
-            document.getElementById('display-max').innerText = config.max;
-
-            // 自分がホスト（最初に入った人など）の場合、開始ボタンを表示
-            if (pNames[0] === myName) {
-                document.getElementById('start-game-btn').classList.remove('hidden');
+            if (config.phase === "playing") {
+                document.getElementById('participant-msg').classList.add('hidden');
+                if(isHostMode) document.getElementById('open-vote-btn').classList.remove('hidden');
+                if(isHostMode) document.getElementById('start-game-btn').classList.add('hidden');
             }
 
-            // 配役が完了したか監視
-            if (players[myName] && players[myName].role !== "未割当") {
+            if (players[myName].role !== "未割当") {
                 document.getElementById('role-display').classList.remove('hidden');
                 document.getElementById('my-role-name').innerText = players[myName].role;
-                document.getElementById('status-msg').innerText = "配役が完了しました。夜の行動へ...";
             }
+
+            if (config.phase === "voting" && players[myName].alive) {
+                showVotePanel(players);
+            } else {
+                document.getElementById('vote-panel').classList.add('hidden');
+            }
+
+            if (isHostMode && config.phase === "voting") checkTally(players, roomId);
         });
     };
 
-    // ゲーム開始（配役ロジック）
+    // (配役、集計ロジックは前回同様)
     document.getElementById('start-game-btn').onclick = () => {
-        const roomPath = `rooms/${currentRoom}`;
-        onValue(ref(db, roomPath), (snapshot) => {
-            const data = snapshot.val();
-            const players = data.players;
-            const names = Object.keys(players);
-            const count = names.length;
-            const config = data.config;
-
-            // シンプルな配役アルゴリズム
+        onValue(ref(db, `rooms/${currentRoom}/players`), (s) => {
+            const names = Object.keys(s.val());
             let roles = [];
-            // 人狼の数（5〜8人で1人、9〜15人で2人、それ以上は3人〜と調整）
-            let wolfCount = count >= 16 ? 3 : (count >= 9 ? 2 : 1);
-            for(let i=0; i<wolfCount; i++) roles.push("②人狼");
-            
-            if (config.role3) roles.push("③占い師");
-            if (config.role4 && wolfCount >= 2) roles.push("④霊媒師");
-            if (config.role5) roles.push("⑤騎士/ｺｽﾌﾟﾚｲﾔｰ");
-            if (config.role6) { roles.push("⑥恋人"); roles.push("⑥恋人"); }
-            if (config.role7) roles.push("⑦多重人格/ﾒﾝﾀﾘｽﾄ");
-            if (config.role8) roles.push("⑧吸血鬼");
-
-            // 残りを市民で埋める
-            while(roles.length < count) {
-                roles.push("①市民");
-            }
-
-            // シャッフル
+            rolesData.forEach(r => { for(let i=0; i<r.count; i++) roles.push(r.name); });
+            while(roles.length < names.length) roles.push("市民");
             roles.sort(() => Math.random() - 0.5);
-
-            // Firebaseへ書き込み
-            let updates = {};
-            names.forEach((name, idx) => {
-                updates[`/players/${name}/role`] = roles[idx];
-            });
-            update(ref(db, roomPath), updates);
-
+            let up = { "config/phase": "playing" };
+            names.forEach((n, i) => { up[`players/${n}/role`] = roles[i]; });
+            update(ref(db, `rooms/${currentRoom}`), up);
         }, { onlyOnce: true });
     };
+
+    document.getElementById('open-vote-btn').onclick = () => {
+        update(ref(db, `rooms/${currentRoom}/config`), { phase: "voting" });
+    };
+
+    function showVotePanel(players) {
+        document.getElementById('vote-panel').classList.remove('hidden');
+        const btnArea = document.getElementById('vote-buttons');
+        btnArea.innerHTML = "";
+        Object.keys(players).forEach(n => {
+            if (players[n].alive && n !== myName) {
+                const b = document.createElement('button');
+                b.innerText = n; b.className = "vote-btn";
+                b.onclick = () => {
+                    update(ref(db, `rooms/${currentRoom}/players/${myName}`), { vote: n });
+                    btnArea.innerHTML = "<p>投票完了</p>";
+                };
+                btnArea.appendChild(b);
+            }
+        });
+    }
+
+    function checkTally(players, rId) {
+        const alivePlayers = Object.keys(players).filter(n => players[n].alive);
+        const votes = alivePlayers.map(n => players[n].vote).filter(v => v !== "");
+        if (votes.length > 0 && votes.length === alivePlayers.length) {
+            let counts = {};
+            votes.forEach(v => counts[v] = (counts[v] || 0) + 1);
+            const target = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+            const up = { "config/phase": "playing" };
+            up[`players/${target}/alive`] = false;
+            alivePlayers.forEach(n => up[`players/${n}/vote`] = "");
+            update(ref(db, `rooms/${rId}`), up);
+        }
+    }
 </script>
 </body>
 </html>
