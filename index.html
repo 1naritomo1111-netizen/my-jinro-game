@@ -78,7 +78,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, set, onValue, update, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // Firebase設定
     const firebaseConfig = {
         apiKey: "AIzaSyDlorUmU3Ik_7-FG_S6VoylkM5ivYvuOoA",
         authDomain: "my-jinro-game.firebaseapp.com",
@@ -127,18 +126,24 @@
         }
     });
 
-    // 勝利判定関数
-    function checkGameEnd(players) {
+    // --- 勝利判定（修正版：同期待ちガード付き） ---
+    function checkGameEnd(players, config) {
+        if (!config || config.phase === "waiting") return false;
+
         const aliveNames = Object.keys(players).filter(n => players[n].alive);
         if (aliveNames.length === 0) return false;
 
+        // まだ役職配布が完了していない場合は判定しない
+        const unassigned = Object.keys(players).filter(n => players[n].role === "未割当");
+        if (unassigned.length > 0) return false;
+
         const wolves = aliveNames.filter(n => players[n].role === "人狼" || players[n].role === "人狼と出る騎士");
+        const foxes = aliveNames.filter(n => players[n].role === "妖狐");
+        const vampires = aliveNames.filter(n => players[n].role === "吸血鬼");
         const humans = aliveNames.filter(n => 
             players[n].role !== "人狼" && players[n].role !== "人狼と出る騎士" && 
             players[n].role !== "妖狐" && players[n].role !== "吸血鬼"
         );
-        const foxes = aliveNames.filter(n => players[n].role === "妖狐");
-        const vampires = aliveNames.filter(n => players[n].role === "吸血鬼");
 
         let baseWinner = "";
         let subMsg = "";
@@ -156,7 +161,7 @@
         let finalWinner = baseWinner + "の勝利！";
         if (foxes.length > 0 && vampires.length > 0) {
             finalWinner = "妖狐と吸血鬼の勝利！";
-            subMsg = "人知を超えた存在が村を支配しました。";
+            subMsg = "市民も人狼も、人智を超えた存在に敗北しました。";
         } else if (foxes.length > 0) {
             finalWinner = "妖狐の単独勝利！";
             subMsg = "勝利の影で狐が笑っています。";
@@ -199,7 +204,7 @@
             const config = data.config || {};
             const myData = players[myName];
 
-            checkGameEnd(players);
+            checkGameEnd(players, config);
 
             document.getElementById('status-label').innerText = 
                 config.phase === "playing" ? "🗣️ 話し合い中" : (config.phase === "voting" ? "⚖️ 投票中" : (config.phase === "night" ? "🌙 夜の行動中" : "待機中"));
