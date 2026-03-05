@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wolf Community - Mode Separate Edition</title>
+    <title>Wolf Community - Realtime Edition</title>
     <style>
         :root { --bg-color: #0d0d0d; --card-bg: #1a1a1a; --primary-red: #8b0000; --accent-red: #ff3333; --gold: #d4af37; }
         body { font-family: sans-serif; background: var(--bg-color); color: white; margin: 0; padding: 10px; display: flex; justify-content: center; }
@@ -19,13 +19,14 @@
         .my-role-box { background: linear-gradient(to right, #2c0000, #1a1a1a); padding: 15px; border-radius: 12px; margin: 15px 0; border: 1px solid var(--gold); text-align: left; }
         .hidden { display: none !important; }
         .vote-btn { background: transparent; border: 1px solid var(--accent-red); margin: 5px; padding: 10px; color: white; width: 45%; border-radius: 5px; }
+        #teammate-info { font-weight: bold; color: #ff4444; margin-top: 10px; font-size: 0.95rem; text-shadow: 0 0 5px rgba(255,0,0,0.3); }
     </style>
 </head>
 <body>
 
 <div id="login-screen" class="container">
-    <h1 id="title-text">WOLF COMMUNITY</h1>
-    <div id="host-only-badge" class="hidden" style="color:var(--gold); font-size:0.8rem; margin-bottom:10px;">【ホストモードで起動中】</div>
+    <h1>WOLF COMMUNITY</h1>
+    <div id="host-only-badge" class="hidden" style="color:var(--gold); font-size:0.8rem; margin-bottom:10px;">【ホストモード】</div>
     <input type="text" id="room-id" placeholder="合言葉 (Room ID)">
     <input type="text" id="player-name" placeholder="あなたの名前">
     <button id="join-btn" class="main-btn">入室する</button>
@@ -36,27 +37,26 @@
     
     <div id="host-panel" class="hidden">
         <div class="setup-box">
-            <p style="color: var(--gold); margin: 0 0 10px 0; font-weight: bold;">ホスト設定：役職人数</p>
+            <p style="color: var(--gold); margin: 0 0 10px 0; font-weight: bold;">役職人数設定</p>
             <div id="role-list"></div>
-            <button id="start-game-btn" class="main-btn" style="background: var(--gold); color: black;">この構成で配役を開始</button>
+            <button id="start-game-btn" class="main-btn" style="background: var(--gold); color: black;">配役を開始</button>
         </div>
         <button id="open-vote-btn" class="main-btn hidden" style="background: #3498db;">議論終了・投票開始</button>
     </div>
 
     <div id="participant-msg" class="hidden" style="background: #222; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
-        <p style="color: #f1c40f; margin: 0;">ホストが設定中です。開始までお待ちください...</p>
+        <p style="color: #f1c40f; margin: 0;">ホストが設定中です...</p>
     </div>
 
     <div id="role-display" class="my-role-box hidden">
-        <span style="font-size: 0.7rem; color: #aaa;">YOUR ROLE</span><br>
-        <strong id="my-role-name" style="font-size: 1.3rem; color: var(--gold);">? ? ?</strong>
-        <div id="teammate-info" style="font-size: 0.8rem; margin-top: 5px; color: #ff6666;"></div>
+        <span style="font-size: 0.7rem; color: #aaa;">あなたの役職</span><br>
+        <strong id="my-role-name" style="font-size: 1.4rem; color: var(--gold);">? ? ?</strong>
+        <div id="teammate-info"></div>
     </div>
 
     <div id="player-list"></div>
-    
     <div id="vote-panel" class="hidden">
-        <p style="color: var(--accent-red); font-weight: bold;">処刑投票：対象を選択してください</p>
+        <p style="color: var(--accent-red); font-weight: bold;">処刑投票：対象を選択</p>
         <div id="vote-buttons"></div>
     </div>
 </div>
@@ -65,6 +65,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, set, onValue, update, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+    // あなたのFirebase Config
     const firebaseConfig = {
         apiKey: "AIzaSyDlorUmU3Ik_7-FG_S6VoylkM5ivYvuOoA",
         authDomain: "my-jinro-game.firebaseapp.com",
@@ -78,13 +79,9 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // ★URLを見てホストかどうかを判定
     const urlParams = new URLSearchParams(window.location.search);
     const isHostMode = urlParams.get('mode') === 'host';
-
-    if (isHostMode) {
-        document.getElementById('host-only-badge').classList.remove('hidden');
-    }
+    if (isHostMode) document.getElementById('host-only-badge').classList.remove('hidden');
 
     let myName = "", currentRoom = "";
     const rolesData = [
@@ -93,8 +90,7 @@
         { id: 'reibai', name: '霊媒師', count: 0 },
         { id: 'kishi', name: '騎士', count: 0 },
         { id: 'lover', name: '恋人', count: 0 },
-        { id: 'multi', name: '多重人格', count: 0 },
-        { id: 'vamp', name: '吸血鬼', count: 0 }
+        { id: 'multi', name: '多重人格', count: 0 }
     ];
 
     function renderRoleSetup() {
@@ -137,7 +133,6 @@
         document.getElementById('game-screen').classList.remove('hidden');
         document.getElementById('display-room').innerText = roomId;
 
-        // ホストなら設定パネルを表示、そうでなければ待機メッセージを表示
         if (isHostMode) {
             document.getElementById('host-panel').classList.remove('hidden');
             renderRoleSetup();
@@ -151,6 +146,7 @@
             const players = data.players || {};
             const config = data.config || {};
 
+            // プレイヤーリスト表示
             const listDiv = document.getElementById('player-list');
             listDiv.innerHTML = "";
             Object.keys(players).forEach(n => {
@@ -158,15 +154,32 @@
                 listDiv.innerHTML += `<div class="player-card ${p.alive ? '' : 'dead'}"><span>👤 ${n}</span><span>${p.alive ? '生存' : '追放'}</span></div>`;
             });
 
+            // 役職表示 & 仲間確認（パッと出るように最適化）
+            const myData = players[myName];
+            if (myData && myData.role !== "未割当") {
+                document.getElementById('role-display').classList.remove('hidden');
+                document.getElementById('my-role-name').innerText = myData.role;
+                
+                // 仲間探査ロジック
+                let info = "";
+                const allNames = Object.keys(players);
+                if (myData.role === "人狼") {
+                    const friends = allNames.filter(n => players[n].role === "人狼" && n !== myName);
+                    info = friends.length > 0 ? "仲間の人狼: " + friends.join(", ") : "仲間の人狼はいません";
+                } else if (myData.role === "多重人格") {
+                    const masters = allNames.filter(n => players[n].role === "人狼");
+                    info = "ご主人様(人狼): " + (masters.join(", ") || "不明");
+                } else if (myData.role === "恋人") {
+                    const partners = allNames.filter(n => players[n].role === "恋人" && n !== myName);
+                    info = "相方: " + (partners.join(", ") || "不在");
+                }
+                document.getElementById('teammate-info').innerText = info;
+            }
+
             if (config.phase === "playing") {
                 document.getElementById('participant-msg').classList.add('hidden');
                 if(isHostMode) document.getElementById('open-vote-btn').classList.remove('hidden');
                 if(isHostMode) document.getElementById('start-game-btn').classList.add('hidden');
-            }
-
-            if (players[myName].role !== "未割当") {
-                document.getElementById('role-display').classList.remove('hidden');
-                document.getElementById('my-role-name').innerText = players[myName].role;
             }
 
             if (config.phase === "voting" && players[myName].alive) {
@@ -179,7 +192,6 @@
         });
     };
 
-    // (配役、集計ロジックは前回同様)
     document.getElementById('start-game-btn').onclick = () => {
         onValue(ref(db, `rooms/${currentRoom}/players`), (s) => {
             const names = Object.keys(s.val());
@@ -207,7 +219,7 @@
                 b.innerText = n; b.className = "vote-btn";
                 b.onclick = () => {
                     update(ref(db, `rooms/${currentRoom}/players/${myName}`), { vote: n });
-                    btnArea.innerHTML = "<p>投票完了</p>";
+                    btnArea.innerHTML = "<p>投票完了。結果を待て...</p>";
                 };
                 btnArea.appendChild(b);
             }
