@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wolf Community - Realtime Edition</title>
+    <title>Wolf Community - Debate Edition</title>
     <style>
         :root { --bg-color: #0d0d0d; --card-bg: #1a1a1a; --primary-red: #8b0000; --accent-red: #ff3333; --gold: #d4af37; }
         body { font-family: sans-serif; background: var(--bg-color); color: white; margin: 0; padding: 10px; display: flex; justify-content: center; }
@@ -14,12 +14,14 @@
         .role-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; border-bottom: 1px solid #333; padding-bottom: 5px; }
         .count-controls { display: flex; align-items: center; gap: 10px; }
         .count-btn { width: 30px; height: 30px; background: #444; border: 1px solid #666; color: white; border-radius: 5px; cursor: pointer; }
-        button.main-btn { background: linear-gradient(135deg, var(--primary-red), #440000); color: white; border: none; padding: 15px; border-radius: 10px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 10px; }
+        button.main-btn { background: linear-gradient(135deg, var(--primary-red), #440000); color: white; border: none; padding: 15px; border-radius: 10px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 10px; transition: 0.3s; }
         .player-card { background: var(--card-bg); margin: 5px 0; padding: 12px; border-radius: 10px; display: flex; justify-content: space-between; border-left: 4px solid var(--primary-red); }
-        .my-role-box { background: linear-gradient(to right, #2c0000, #1a1a1a); padding: 15px; border-radius: 12px; margin: 15px 0; border: 1px solid var(--gold); text-align: left; }
+        .dead { opacity: 0.4; border-left-color: #444; filter: grayscale(1); }
+        .my-role-box { background: linear-gradient(to right, #2c0000, #1a1a1a); padding: 15px; border-radius: 12px; margin: 15px 0; border: 1px solid var(--gold); }
         .hidden { display: none !important; }
-        .vote-btn { background: transparent; border: 1px solid var(--accent-red); margin: 5px; padding: 10px; color: white; width: 45%; border-radius: 5px; }
-        #teammate-info { font-weight: bold; color: #ff4444; margin-top: 10px; font-size: 0.95rem; text-shadow: 0 0 5px rgba(255,0,0,0.3); }
+        .vote-btn { background: transparent; border: 1px solid var(--accent-red); margin: 5px; padding: 10px; color: white; width: 45%; border-radius: 5px; cursor: pointer; }
+        #teammate-info { font-weight: bold; color: #ff4444; margin-top: 10px; font-size: 0.95rem; }
+        #status-label { display: block; background: #333; padding: 5px 10px; border-radius: 5px; font-size: 0.8rem; margin-bottom: 10px; text-align: center; }
     </style>
 </head>
 <body>
@@ -33,19 +35,20 @@
 </div>
 
 <div id="game-screen" class="container hidden">
-    <h2 style="font-size: 0.9rem; color: #888;">ROOM: <span id="display-room" style="color: white;"></span></h2>
+    <div id="status-label">待機中</div>
+    <h2 style="font-size: 0.8rem; color: #888;">ROOM: <span id="display-room" style="color: white;"></span></h2>
     
     <div id="host-panel" class="hidden">
-        <div class="setup-box">
+        <div id="setup-area" class="setup-box">
             <p style="color: var(--gold); margin: 0 0 10px 0; font-weight: bold;">役職人数設定</p>
             <div id="role-list"></div>
-            <button id="start-game-btn" class="main-btn" style="background: var(--gold); color: black;">配役を開始</button>
+            <button id="start-game-btn" class="main-btn" style="background: var(--gold); color: black;">ゲーム開始（配役）</button>
         </div>
-        <button id="open-vote-btn" class="main-btn hidden" style="background: #3498db;">議論終了・投票開始</button>
+        <button id="go-to-vote-btn" class="main-btn hidden" style="background: #e74c3c;">話し合い終了 ➜ 投票へ</button>
     </div>
 
     <div id="participant-msg" class="hidden" style="background: #222; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
-        <p style="color: #f1c40f; margin: 0;">ホストが設定中です...</p>
+        <p id="wait-text" style="color: #f1c40f; margin: 0;">ホストの設定を待っています...</p>
     </div>
 
     <div id="role-display" class="my-role-box hidden">
@@ -54,18 +57,18 @@
         <div id="teammate-info"></div>
     </div>
 
-    <div id="player-list"></div>
-    <div id="vote-panel" class="hidden">
-        <p style="color: var(--accent-red); font-weight: bold;">処刑投票：対象を選択</p>
+    <div id="vote-panel" class="hidden" style="background:rgba(255,0,0,0.1); padding:15px; border-radius:10px; margin:10px 0; border:1px solid var(--accent-red);">
+        <p style="color: var(--accent-red); font-weight: bold; margin-top:0;">【追放投票】誰か一人を選んでください</p>
         <div id="vote-buttons"></div>
     </div>
+
+    <div id="player-list"></div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, set, onValue, update, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // あなたのFirebase Config
     const firebaseConfig = {
         apiKey: "AIzaSyDlorUmU3Ik_7-FG_S6VoylkM5ivYvuOoA",
         authDomain: "my-jinro-game.firebaseapp.com",
@@ -94,17 +97,10 @@
     ];
 
     function renderRoleSetup() {
-        const div = document.getElementById('role-list');
-        div.innerHTML = "";
+        const div = document.getElementById('role-list'); div.innerHTML = "";
         rolesData.forEach(role => {
-            const row = document.createElement('div');
-            row.className = 'role-row';
-            row.innerHTML = `<span>${role.name}</span>
-                <div class="count-controls">
-                    <button class="count-btn" data-id="${role.id}" data-delta="-1">-</button>
-                    <span id="count-${role.id}">${role.count}</span>
-                    <button class="count-btn" data-id="${role.id}" data-delta="1">+</button>
-                </div>`;
+            const row = document.createElement('div'); row.className = 'role-row';
+            row.innerHTML = `<span>${role.name}</span><div class="count-controls"><button class="count-btn" data-id="${role.id}" data-delta="-1">-</button><span id="count-${role.id}">${role.count}</span><button class="count-btn" data-id="${role.id}" data-delta="1">+</button></div>`;
             div.appendChild(row);
         });
     }
@@ -145,47 +141,45 @@
             const data = snapshot.val(); if (!data) return;
             const players = data.players || {};
             const config = data.config || {};
+            const myData = players[myName];
 
-            // プレイヤーリスト表示
-            const listDiv = document.getElementById('player-list');
-            listDiv.innerHTML = "";
+            // 状態表示ラベル
+            const label = document.getElementById('status-label');
+            if(config.phase === "playing") label.innerText = "🗣️ 話し合い中";
+            if(config.phase === "voting") label.innerText = "⚖️ 投票中";
+
+            // プレイヤーリスト
+            const listDiv = document.getElementById('player-list'); listDiv.innerHTML = "";
             Object.keys(players).forEach(n => {
                 const p = players[n];
-                listDiv.innerHTML += `<div class="player-card ${p.alive ? '' : 'dead'}"><span>👤 ${n}</span><span>${p.alive ? '生存' : '追放'}</span></div>`;
+                listDiv.innerHTML += `<div class="player-card ${p.alive ? '' : 'dead'}"><span>👤 ${n}</span><span>${p.alive ? '生存' : '追放済み'}</span></div>`;
             });
 
-            // 役職表示 & 仲間確認（パッと出るように最適化）
-            const myData = players[myName];
+            // 役職と仲間の表示
             if (myData && myData.role !== "未割当") {
                 document.getElementById('role-display').classList.remove('hidden');
                 document.getElementById('my-role-name').innerText = myData.role;
-                
-                // 仲間探査ロジック
                 let info = "";
                 const allNames = Object.keys(players);
                 if (myData.role === "人狼") {
                     const friends = allNames.filter(n => players[n].role === "人狼" && n !== myName);
-                    info = friends.length > 0 ? "仲間の人狼: " + friends.join(", ") : "仲間の人狼はいません";
+                    info = friends.length > 0 ? "仲間の人狼: " + friends.join(", ") : "仲間はいません";
                 } else if (myData.role === "多重人格") {
                     const masters = allNames.filter(n => players[n].role === "人狼");
                     info = "ご主人様(人狼): " + (masters.join(", ") || "不明");
-                } else if (myData.role === "恋人") {
-                    const partners = allNames.filter(n => players[n].role === "恋人" && n !== myName);
-                    info = "相方: " + (partners.join(", ") || "不在");
                 }
                 document.getElementById('teammate-info').innerText = info;
             }
 
+            // フェーズ制御
             if (config.phase === "playing") {
                 document.getElementById('participant-msg').classList.add('hidden');
-                if(isHostMode) document.getElementById('open-vote-btn').classList.remove('hidden');
-                if(isHostMode) document.getElementById('start-game-btn').classList.add('hidden');
-            }
-
-            if (config.phase === "voting" && players[myName].alive) {
-                showVotePanel(players);
-            } else {
+                document.getElementById('setup-area')?.classList.add('hidden');
                 document.getElementById('vote-panel').classList.add('hidden');
+                if(isHostMode) document.getElementById('go-to-vote-btn').classList.remove('hidden');
+            } else if (config.phase === "voting") {
+                document.getElementById('go-to-vote-btn')?.classList.add('hidden');
+                if (myData.alive) showVotePanel(players);
             }
 
             if (isHostMode && config.phase === "voting") checkTally(players, roomId);
@@ -199,27 +193,26 @@
             rolesData.forEach(r => { for(let i=0; i<r.count; i++) roles.push(r.name); });
             while(roles.length < names.length) roles.push("市民");
             roles.sort(() => Math.random() - 0.5);
-            let up = { "config/phase": "playing" };
-            names.forEach((n, i) => { up[`players/${n}/role`] = roles[i]; });
+            let up = { "config/phase": "playing" }; // ★ まずは話し合い(playing)から
+            names.forEach((n, i) => { up[`players/${n}/role`] = roles[i]; up[`players/${n}/alive`] = true; });
             update(ref(db, `rooms/${currentRoom}`), up);
         }, { onlyOnce: true });
     };
 
-    document.getElementById('open-vote-btn').onclick = () => {
+    // 話し合いが終わったらホストが押す
+    document.getElementById('go-to-vote-btn').onclick = () => {
         update(ref(db, `rooms/${currentRoom}/config`), { phase: "voting" });
     };
 
     function showVotePanel(players) {
         document.getElementById('vote-panel').classList.remove('hidden');
-        const btnArea = document.getElementById('vote-buttons');
-        btnArea.innerHTML = "";
+        const btnArea = document.getElementById('vote-buttons'); btnArea.innerHTML = "";
         Object.keys(players).forEach(n => {
             if (players[n].alive && n !== myName) {
-                const b = document.createElement('button');
-                b.innerText = n; b.className = "vote-btn";
+                const b = document.createElement('button'); b.innerText = n; b.className = "vote-btn";
                 b.onclick = () => {
                     update(ref(db, `rooms/${currentRoom}/players/${myName}`), { vote: n });
-                    btnArea.innerHTML = "<p>投票完了。結果を待て...</p>";
+                    btnArea.innerHTML = "<p>投票しました。全員が終わるのを待っています...</p>";
                 };
                 btnArea.appendChild(b);
             }
@@ -233,9 +226,10 @@
             let counts = {};
             votes.forEach(v => counts[v] = (counts[v] || 0) + 1);
             const target = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
-            const up = { "config/phase": "playing" };
+            const up = { "config/phase": "playing" }; // 追放したらまた話し合いに戻る
             up[`players/${target}/alive`] = false;
             alivePlayers.forEach(n => up[`players/${n}/vote`] = "");
+            alert(target + " さんを追放しました。次の話し合いを始めてください。");
             update(ref(db, `rooms/${rId}`), up);
         }
     }
